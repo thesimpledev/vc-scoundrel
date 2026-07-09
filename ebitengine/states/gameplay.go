@@ -161,7 +161,7 @@ func (gp *GamePlay) doDeal() {
 		// Capture slot and card in closure
 		capturedCard := card
 		gp.delayedCall(delay, func() {
-			core.PlaySFX(fmt.Sprintf("audio/casino/card-slide-%d", rand.IntN(8)+1))
+			core.PlaySFX(fmt.Sprintf("audio/casino/card-slide-%d", rand.IntN(8)+1)) // #nosec G404 -- cosmetic sound choice, not security-sensitive
 			capturedCard.MoveTo(targetX, core.RoomY, core.MoveDuration, "ease_out_quad", func() {
 				capturedCard.Flip(func() {
 					pendingAnims--

@@ -1,10 +1,10 @@
 module github.com/thesimpledev/radianthorizon
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.8.8
-	golang.org/x/image v0.20.0
+	golang.org/x/image v0.43.0
 )
 
 require (
@@ -16,7 +16,7 @@ require (
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/jfreymuth/oggvorbis v1.0.5 // indirect
 	github.com/jfreymuth/vorbis v1.0.2 // indirect
-	golang.org/x/sync v0.8.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 )
