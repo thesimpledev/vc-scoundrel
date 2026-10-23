@@ -28,13 +28,24 @@ func NewHUD(font, smallFont *text.GoTextFace) *HUD {
 	return &HUD{Font: font, SmallFont: smallFont}
 }
 
+// HUDState is the game state the HUD displays.
+type HUDState struct {
+	HP            int
+	MaxHP         int
+	DeckRemaining int
+	Weapon        *entities.WeaponSlot
+	CanAvoid      bool
+	HoveredCard   *entities.Card
+	Room          *game.Room
+}
+
 // Draw renders the full HUD.
-func (h *HUD) Draw(screen *ebiten.Image, hp, maxHP, deckRemaining int, ws *entities.WeaponSlot, canAvoid bool, phase string, hoveredCard *entities.Card, room *game.Room) {
-	h.drawHPBar(screen, hp, maxHP)
-	h.drawDeckCount(screen, deckRemaining)
-	h.drawWeaponInfo(screen, ws)
-	h.drawSkipIndicator(screen, canAvoid)
-	h.drawCardInfo(screen, hoveredCard, ws, room, hp)
+func (h *HUD) Draw(screen *ebiten.Image, s HUDState) {
+	h.drawHPBar(screen, s.HP, s.MaxHP)
+	h.drawDeckCount(screen, s.DeckRemaining)
+	h.drawWeaponInfo(screen, s.Weapon)
+	h.drawSkipIndicator(screen, s.CanAvoid)
+	h.drawCardInfo(screen, s.HoveredCard, s.Weapon, s.Room, s.HP)
 }
 
 func (h *HUD) drawHPBar(screen *ebiten.Image, hp, maxHP int) {
@@ -172,10 +183,7 @@ func (h *HUD) monsterInfo(card *entities.Card, ws *entities.WeaponSlot) (string,
 
 	if ws.HasWeapon() {
 		if ws.CanUseAgainst(card.Value) {
-			weapDmg := card.Value - ws.WeaponValue()
-			if weapDmg < 0 {
-				weapDmg = 0
-			}
+			weapDmg := max(card.Value-ws.WeaponValue(), 0)
 			if weapDmg == 0 {
 				parts += "    Weapon: no damage!"
 			} else {
@@ -217,10 +225,7 @@ func (h *HUD) potionInfo(card *entities.Card, room *game.Room, hp int) (string, 
 	if room.PotionUsed {
 		line2 = "Already used a potion this room - this one will be wasted!"
 	} else {
-		actualHeal := card.Value
-		if core.MaxHP-hp < actualHeal {
-			actualHeal = core.MaxHP - hp
-		}
+		actualHeal := min(core.MaxHP-hp, card.Value)
 		if actualHeal <= 0 {
 			line2 = "HP is already full - healing would be wasted"
 		} else if actualHeal < card.Value {

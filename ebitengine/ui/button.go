@@ -22,14 +22,19 @@ type Button struct {
 	Visible bool
 }
 
+// Rect is a button's position and size.
+type Rect struct {
+	X, Y, W, H float64
+}
+
 // NewButton creates a button.
-func NewButton(label string, x, y, w, h float64, font *text.GoTextFace, onClick func()) *Button {
+func NewButton(label string, bounds Rect, font *text.GoTextFace, onClick func()) *Button {
 	return &Button{
 		Text:    label,
-		X:       x,
-		Y:       y,
-		W:       w,
-		H:       h,
+		X:       bounds.X,
+		Y:       bounds.Y,
+		W:       bounds.W,
+		H:       bounds.H,
 		OnClick: onClick,
 		Font:    font,
 		Visible: true,

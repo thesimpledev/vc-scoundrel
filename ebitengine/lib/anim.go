@@ -119,7 +119,7 @@ func AnimUpdateAll(dt float64) {
 	// Snapshot count: callbacks may append new anims beyond this index.
 	count := len(activeAnims)
 	n := 0
-	for i := 0; i < count; i++ {
+	for i := range count {
 		if !activeAnims[i].Update(dt) {
 			activeAnims[n] = activeAnims[i]
 			n++

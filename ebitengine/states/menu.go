@@ -11,9 +11,9 @@ import (
 
 // Menu is the title screen state.
 type Menu struct {
-	sm          *core.StateManager
-	fonts       *Fonts
-	newGameBtn  *ui.Button
+	sm         *core.StateManager
+	fonts      *Fonts
+	newGameBtn *ui.Button
 }
 
 // NewMenu creates the menu state.
@@ -26,7 +26,7 @@ func (m *Menu) Enter(data any) {
 	btnX := (core.WindowW - btnW) / 2
 	btnY := core.WindowH * 0.6
 
-	m.newGameBtn = ui.NewButton("New Game", btnX, btnY, btnW, btnH, m.fonts.Default, func() {
+	m.newGameBtn = ui.NewButton("New Game", ui.Rect{X: btnX, Y: btnY, W: btnW, H: btnH}, m.fonts.Default, func() {
 		m.sm.Switch("game_play", nil)
 	})
 }

@@ -22,7 +22,7 @@ func (r *Room) SetCards(slotCards [4]*entities.Card) {
 	r.ResolvedCount = 0
 	r.PotionUsed = false
 	count := 0
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if r.Slots[i] != nil {
 			count++
 		}
@@ -51,7 +51,7 @@ func (r *Room) IsComplete() bool {
 // GetRemainingCard returns the carry-over card and its slot index.
 // Returns nil, -1 if empty.
 func (r *Room) GetRemainingCard() (*entities.Card, int) {
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if r.Slots[i] != nil {
 			return r.Slots[i], i
 		}
@@ -62,7 +62,7 @@ func (r *Room) GetRemainingCard() (*entities.Card, int) {
 // GetAllCards returns all non-nil cards currently in the room.
 func (r *Room) GetAllCards() []*entities.Card {
 	var cards []*entities.Card
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if r.Slots[i] != nil {
 			cards = append(cards, r.Slots[i])
 		}
@@ -73,7 +73,7 @@ func (r *Room) GetAllCards() []*entities.Card {
 // CardCount returns how many cards are in the room.
 func (r *Room) CardCount() int {
 	count := 0
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if r.Slots[i] != nil {
 			count++
 		}

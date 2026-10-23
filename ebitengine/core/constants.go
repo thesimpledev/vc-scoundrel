@@ -63,8 +63,8 @@ const (
 
 // Room slots (4 cards in a row)
 const (
-	RoomY      = 80
-	RoomStartX = 340
+	RoomY       = 80
+	RoomStartX  = 340
 	RoomSpacing = CardDrawW + CardPad // ~121
 )
 

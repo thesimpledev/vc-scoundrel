@@ -67,7 +67,7 @@ func (tm *TurnManager) DealRoom() ([4]*entities.Card, int) {
 	}
 
 	// Fill empty slots from the dungeon deck
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if slotCards[i] == nil && !tm.Deck.IsEmpty() {
 			slotCards[i] = tm.Deck.DrawCard()
 		}
@@ -172,9 +172,9 @@ func (tm *TurnManager) resolveWeapon(slotIndex int, card *entities.Card) *Resolv
 	tm.LastCard = card
 
 	result := &ResolveResult{
-		Action:   "weapon_equipped",
-		Card:     card,
-		Slot:     slotIndex,
+		Action:    "weapon_equipped",
+		Card:      card,
+		Slot:      slotIndex,
 		OldWeapon: oldWeapon,
 		OldSlain:  oldSlain,
 	}

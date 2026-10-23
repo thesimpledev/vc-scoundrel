@@ -41,7 +41,7 @@ func (d *Deck) build() {
 
 // Shuffle randomizes the deck using Fisher-Yates.
 func (d *Deck) Shuffle() {
-	rand.Shuffle(len(d.Cards), func(i, j int) {
+	rand.Shuffle(len(d.Cards), func(i, j int) { // #nosec G404 -- deck shuffle for a single-player game, not security sensitive
 		d.Cards[i], d.Cards[j] = d.Cards[j], d.Cards[i]
 	})
 }

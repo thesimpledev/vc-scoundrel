@@ -3,6 +3,7 @@ package states
 import (
 	"fmt"
 	"math/rand/v2"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -29,7 +30,7 @@ type GamePlay struct {
 	flyingCards []*entities.Card
 
 	// Combat choice UI
-	combatButtons []*ui.Button
+	combatButtons  []*ui.Button
 	choosingCombat bool
 	combatSlot     int
 
@@ -46,11 +47,47 @@ type GamePlay struct {
 
 	// HUD
 	hud *ui.HUD
+
+	// Timing
+	lastUpdate time.Time
+
+	// Platform hooks, replaceable in tests
+	input   Input
+	now     func() time.Time
+	playSFX func(name string)
 }
+
+// Input reports the player's mouse and keyboard input for the current frame.
+type Input interface {
+	CursorPosition() (int, int)
+	MouseJustPressed() bool
+	MouseJustReleased() bool
+	KeyJustPressed(key ebiten.Key) bool
+}
+
+type ebitenInput struct{}
+
+func (ebitenInput) CursorPosition() (int, int) { return ebiten.CursorPosition() }
+
+func (ebitenInput) MouseJustPressed() bool {
+	return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+}
+
+func (ebitenInput) MouseJustReleased() bool {
+	return inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft)
+}
+
+func (ebitenInput) KeyJustPressed(key ebiten.Key) bool { return inpututil.IsKeyJustPressed(key) }
 
 // NewGamePlay creates the gameplay state.
 func NewGamePlay(sm *core.StateManager, fonts *Fonts) *GamePlay {
-	return &GamePlay{sm: sm, fonts: fonts}
+	return &GamePlay{
+		sm:      sm,
+		fonts:   fonts,
+		input:   ebitenInput{},
+		now:     time.Now,
+		playSFX: core.PlaySFX,
+	}
 }
 
 func (gp *GamePlay) Enter(data any) {
@@ -69,6 +106,7 @@ func (gp *GamePlay) Enter(data any) {
 	gp.combatSlot = -1
 	gp.animating = false
 	gp.hoveredCard = nil
+	gp.lastUpdate = gp.now()
 	gp.gameOverPending = false
 	gp.gameOverTimer = 0
 	gp.gameOverData = nil
@@ -126,53 +164,56 @@ func (gp *GamePlay) setupEvents() {
 func (gp *GamePlay) doDeal() {
 	gp.animating = true
 	slotCards, carrySlot := gp.turn.DealRoom()
+	gp.roomCards = slotCards
 
-	// Find new cards that need animation (everything except carry-over)
-	var newCardSlots []int
-	for i := 0; i < 4; i++ {
-		if slotCards[i] != nil && i != carrySlot {
-			newCardSlots = append(newCardSlots, i)
-		}
-	}
-
-	pendingAnims := len(newCardSlots)
-
-	if pendingAnims == 0 {
-		gp.roomCards = slotCards
-		gp.animating = false
-		gp.enableRoomInteraction()
+	newCardSlots := slotsToDeal(slotCards, carrySlot)
+	if len(newCardSlots) == 0 {
+		gp.finishDeal()
 		return
 	}
 
-	// Place all cards into visual slots
-	gp.roomCards = slotCards
-
-	// Animate new cards from dungeon pile
-	for staggerI, slot := range newCardSlots {
-		card := slotCards[slot]
-		card.X = core.DungeonX
-		card.Y = core.DungeonY
-		card.SetFaceUp(false)
-		card.Visible = true
-
-		targetX := core.RoomStartX + float64(slot)*core.RoomSpacing
-		delay := float64(staggerI) * core.DealStagger
-
-		// Capture slot and card in closure
-		capturedCard := card
-		gp.delayedCall(delay, func() {
-			core.PlaySFX(fmt.Sprintf("audio/casino/card-slide-%d", rand.IntN(8)+1)) // #nosec G404 -- cosmetic sound choice, not security-sensitive
-			capturedCard.MoveTo(targetX, core.RoomY, core.MoveDuration, "ease_out_quad", func() {
-				capturedCard.Flip(func() {
-					pendingAnims--
-					if pendingAnims <= 0 {
-						gp.animating = false
-						gp.enableRoomInteraction()
-					}
-				})
-			})
-		})
+	pending := len(newCardSlots)
+	onLanded := func() {
+		pending--
+		if pending <= 0 {
+			gp.finishDeal()
+		}
 	}
+	for staggerI, slot := range newCardSlots {
+		gp.dealCard(slotCards[slot], slot, float64(staggerI)*core.DealStagger, onLanded)
+	}
+}
+
+// slotsToDeal returns the filled slots except the carry-over, which stays in place.
+func slotsToDeal(slotCards [4]*entities.Card, carrySlot int) []int {
+	var slots []int
+	for i, card := range slotCards {
+		if card != nil && i != carrySlot {
+			slots = append(slots, i)
+		}
+	}
+	return slots
+}
+
+func (gp *GamePlay) finishDeal() {
+	gp.animating = false
+	gp.enableRoomInteraction()
+}
+
+// dealCard slides a card face down from the dungeon pile to its slot, then flips it.
+func (gp *GamePlay) dealCard(card *entities.Card, slot int, delay float64, onLanded func()) {
+	card.X = core.DungeonX
+	card.Y = core.DungeonY
+	card.SetFaceUp(false)
+	card.Visible = true
+
+	targetX := core.RoomStartX + float64(slot)*core.RoomSpacing
+	gp.delayedCall(delay, func() {
+		gp.playSFX(fmt.Sprintf("audio/casino/card-slide-%d", rand.IntN(8)+1)) // #nosec G404 -- cosmetic sound choice, not security-sensitive
+		card.MoveTo(targetX, core.RoomY, core.MoveDuration, "ease_out_quad", func() {
+			card.Flip(onLanded)
+		})
+	})
 }
 
 func (gp *GamePlay) delayedCall(delay float64, fn func()) {
@@ -189,7 +230,7 @@ func (gp *GamePlay) delayedCall(delay float64, fn func()) {
 // === Card Interaction ===
 
 func (gp *GamePlay) enableRoomInteraction() {
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if gp.roomCards[i] != nil {
 			gp.roomCards[i].Clickable = true
 		}
@@ -197,7 +238,7 @@ func (gp *GamePlay) enableRoomInteraction() {
 }
 
 func (gp *GamePlay) disableRoomInteraction() {
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if gp.roomCards[i] != nil {
 			gp.roomCards[i].Clickable = false
 			gp.roomCards[i].Hovered = false
@@ -248,20 +289,17 @@ func (gp *GamePlay) showCombatChoice(slotIndex int, actions []string) {
 	bareDmg := card.Value
 	gp.combatButtons = append(gp.combatButtons, ui.NewButton(
 		fmt.Sprintf("Barehanded (-%d HP)", bareDmg),
-		btnX, btnY, btnW, btnH, gp.fonts.Default,
+		ui.Rect{X: btnX, Y: btnY, W: btnW, H: btnH}, gp.fonts.Default,
 		func() { gp.chooseCombat(false) },
 	))
 
 	// Weapon button if available
 	for _, action := range actions {
 		if action == "fight_with_weapon" {
-			weapDmg := card.Value - gp.turn.WeaponSlot.WeaponValue()
-			if weapDmg < 0 {
-				weapDmg = 0
-			}
+			weapDmg := max(card.Value-gp.turn.WeaponSlot.WeaponValue(), 0)
 			gp.combatButtons = append(gp.combatButtons, ui.NewButton(
 				fmt.Sprintf("Use Weapon (-%d HP)", weapDmg),
-				btnX, btnY+btnH+8, btnW, btnH, gp.fonts.Default,
+				ui.Rect{X: btnX, Y: btnY + btnH + 8, W: btnW, H: btnH}, gp.fonts.Default,
 				func() { gp.chooseCombat(true) },
 			))
 		}
@@ -438,86 +476,103 @@ func (gp *GamePlay) animateToSlain(card *entities.Card, slotIndex int, onComplet
 // === Update ===
 
 func (gp *GamePlay) Update() error {
-	// Get dt from TPS
-	dt := 1.0 / float64(ebiten.TPS())
+	dt := gp.elapsed()
 	lib.AnimUpdateAll(dt)
 
-	// Game over delay timer
-	if gp.gameOverPending {
-		gp.gameOverTimer -= dt
-		if gp.gameOverTimer <= 0 {
-			gp.gameOverPending = false
-			gp.sm.Switch("game_over", gp.gameOverData)
-			return nil
-		}
+	if gp.tickGameOver(dt) {
+		return nil
 	}
 
-	// Input handling
-	mx, my := ebiten.CursorPosition()
+	mx, my := gp.input.CursorPosition()
+	gp.updateHover(mx, my)
+	if gp.input.MouseJustPressed() {
+		gp.handlePress(mx, my)
+	}
+	if gp.input.MouseJustReleased() && gp.choosingCombat {
+		for _, btn := range gp.combatButtons {
+			btn.HandleMouseRelease(mx, my)
+		}
+	}
+	if !gp.animating {
+		gp.handleKeys()
+	}
+	return nil
+}
 
-	// Mouse move
+// elapsed returns the seconds since the previous frame.
+func (gp *GamePlay) elapsed() float64 {
+	now := gp.now()
+	dt := now.Sub(gp.lastUpdate).Seconds()
+	gp.lastUpdate = now
+	return dt
+}
+
+// tickGameOver counts down the game over delay and reports whether it switched state.
+func (gp *GamePlay) tickGameOver(dt float64) bool {
+	if !gp.gameOverPending {
+		return false
+	}
+	gp.gameOverTimer -= dt
+	if gp.gameOverTimer > 0 {
+		return false
+	}
+	gp.gameOverPending = false
+	gp.sm.Switch("game_over", gp.gameOverData)
+	return true
+}
+
+func (gp *GamePlay) updateHover(mx, my int) {
 	if gp.choosingCombat {
 		for _, btn := range gp.combatButtons {
 			btn.HandleMouseMove(mx, my)
 		}
-	} else if !gp.animating {
-		gp.hoveredCard = nil
-		for i := 0; i < 4; i++ {
-			card := gp.roomCards[i]
-			if card != nil && card.Clickable {
-				over := card.ContainsPoint(mx, my)
-				card.Hovered = over
-				if over {
-					gp.hoveredCard = card
-				}
-			}
-		}
-	} else {
-		gp.hoveredCard = nil
+		return
 	}
-
-	// Mouse press
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		if gp.choosingCombat {
-			for _, btn := range gp.combatButtons {
-				btn.HandleMousePress(mx, my)
-			}
-		} else if !gp.animating {
-			for i := 0; i < 4; i++ {
-				card := gp.roomCards[i]
-				if card != nil && card.Clickable && card.ContainsPoint(mx, my) {
-					gp.onCardClicked(i)
-					break
-				}
-			}
+	gp.hoveredCard = nil
+	if gp.animating {
+		return
+	}
+	for _, card := range gp.roomCards {
+		if card == nil || !card.Clickable {
+			continue
+		}
+		card.Hovered = card.ContainsPoint(mx, my)
+		if card.Hovered {
+			gp.hoveredCard = card
 		}
 	}
+}
 
-	// Mouse release
-	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
-		if gp.choosingCombat {
-			for _, btn := range gp.combatButtons {
-				btn.HandleMouseRelease(mx, my)
-			}
+func (gp *GamePlay) handlePress(mx, my int) {
+	if gp.choosingCombat {
+		for _, btn := range gp.combatButtons {
+			btn.HandleMousePress(mx, my)
+		}
+		return
+	}
+	if gp.animating {
+		return
+	}
+	for i, card := range gp.roomCards {
+		if card != nil && card.Clickable && card.ContainsPoint(mx, my) {
+			gp.onCardClicked(i)
+			return
 		}
 	}
+}
 
-	// Keyboard
-	if !gp.animating {
-		if inpututil.IsKeyJustPressed(ebiten.KeyS) && gp.turn.CanAvoid() {
-			gp.doAvoidRoom()
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && gp.choosingCombat {
-			gp.hideCombatChoice()
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
-			lib.AnimCancelAll()
-			lib.EventClear()
-			gp.sm.Switch("menu", nil)
-		}
+func (gp *GamePlay) handleKeys() {
+	if gp.input.KeyJustPressed(ebiten.KeyS) && gp.turn.CanAvoid() {
+		gp.doAvoidRoom()
 	}
-
-	return nil
+	if gp.input.KeyJustPressed(ebiten.KeyEscape) && gp.choosingCombat {
+		gp.hideCombatChoice()
+	}
+	if gp.input.KeyJustPressed(ebiten.KeyQ) {
+		lib.AnimCancelAll()
+		lib.EventClear()
+		gp.sm.Switch("menu", nil)
+	}
 }
 
 // === Draw ===
@@ -551,7 +606,7 @@ func (gp *GamePlay) Draw(screen *ebiten.Image) {
 	}
 
 	// Room cards
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if gp.roomCards[i] != nil {
 			gp.roomCards[i].Draw(screen)
 		}
@@ -568,16 +623,15 @@ func (gp *GamePlay) Draw(screen *ebiten.Image) {
 	}
 
 	// HUD
-	gp.hud.Draw(screen,
-		gp.turn.HP,
-		core.MaxHP,
-		gp.turn.Deck.Remaining(),
-		gp.turn.WeaponSlot,
-		gp.turn.CanAvoid(),
-		gp.turn.Phase,
-		gp.hoveredCard,
-		gp.turn.Room,
-	)
+	gp.hud.Draw(screen, ui.HUDState{
+		HP:            gp.turn.HP,
+		MaxHP:         core.MaxHP,
+		DeckRemaining: gp.turn.Deck.Remaining(),
+		Weapon:        gp.turn.WeaponSlot,
+		CanAvoid:      gp.turn.CanAvoid(),
+		HoveredCard:   gp.hoveredCard,
+		Room:          gp.turn.Room,
+	})
 }
 
 // === Avoid Room ===
@@ -587,7 +641,7 @@ func (gp *GamePlay) doAvoidRoom() {
 	gp.disableRoomInteraction()
 
 	var cardsToMove []*entities.Card
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if gp.roomCards[i] != nil {
 			cardsToMove = append(cardsToMove, gp.roomCards[i])
 		}

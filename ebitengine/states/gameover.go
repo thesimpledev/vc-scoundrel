@@ -45,12 +45,12 @@ func (go_ *GameOver) Enter(data any) {
 	btnX := (core.WindowW - btnW) / 2
 	btnY := core.WindowH * 0.65
 
-	go_.playAgainBtn = ui.NewButton("Play Again", btnX, btnY, btnW, btnH, go_.fonts.Default, func() {
+	go_.playAgainBtn = ui.NewButton("Play Again", ui.Rect{X: btnX, Y: btnY, W: btnW, H: btnH}, go_.fonts.Default, func() {
 		go_.sm.Switch("game_play", nil)
 	})
 
 	menuY := btnY + btnH + 16
-	go_.menuBtn = ui.NewButton("Main Menu", btnX, menuY, btnW, btnH, go_.fonts.Default, func() {
+	go_.menuBtn = ui.NewButton("Main Menu", ui.Rect{X: btnX, Y: menuY, W: btnW, H: btnH}, go_.fonts.Default, func() {
 		go_.sm.Switch("menu", nil)
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -16,7 +17,7 @@ import (
 const sampleRate = 44100
 
 var (
-	assetFS      embed.FS
+	assetFS      fs.FS
 	audioContext *audio.Context
 )
 
@@ -30,8 +31,8 @@ var (
 
 // InitAssets sets the embedded filesystem and creates the audio context.
 // Must be called before any Load/Play functions.
-func InitAssets(fs embed.FS) {
-	assetFS = fs
+func InitAssets(files embed.FS) {
+	assetFS = files
 	audioContext = audio.NewContext(sampleRate)
 }
 
@@ -55,7 +56,8 @@ func LoadImage(name string) *ebiten.Image {
 	if err != nil {
 		panic(fmt.Sprintf("assets: failed to open image %s: %v", path, err))
 	}
-	defer f.Close()
+	// A close error on a read-only embedded file cannot lose data.
+	defer func() { _ = f.Close() }()
 
 	img, _, err := ebitenutil.NewImageFromReader(f)
 	if err != nil {
@@ -80,7 +82,8 @@ func loadSoundBytes(name string) []byte {
 	if err != nil {
 		panic(fmt.Sprintf("assets: failed to open sound %s: %v", path, err))
 	}
-	defer f.Close()
+	// A close error on a read-only embedded file cannot lose data.
+	defer func() { _ = f.Close() }()
 
 	stream, err := vorbis.DecodeF32(f)
 	if err != nil {
