@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "created_at": "2026-08-22T01:12:31.397932598Z",
+  "capslock_version": "v0.3.2",
+  "goos": "linux",
+  "goarch": "amd64",
+  "gosum_sha256": "21d2ca3c2749b002735099b12df5edfe0cbc30f1f1912dc7e74e82ee275a2149",
+  "capabilities": {
+    "github.com/thesimpledev/radianthorizon": [
+      "ARBITRARY_EXECUTION",
+      "CGO",
+      "EXEC",
+      "FILES",
+      "NETWORK",
+      "READ_SYSTEM_STATE",
+      "REFLECT",
+      "RUNTIME",
+      "SYSTEM_CALLS",
+      "UNANALYZED",
+      "UNSAFE_POINTER"
+    ],
+    "github.com/thesimpledev/radianthorizon/core": [
+      "ARBITRARY_EXECUTION",
+      "CGO",
+      "FILES",
+      "NETWORK",
+      "READ_SYSTEM_STATE",
+      "REFLECT",
+      "RUNTIME",
+      "UNANALYZED",
+      "UNSAFE_POINTER"
+    ],
+    "github.com/thesimpledev/radianthorizon/entities": [
+      "ARBITRARY_EXECUTION",
+      "CGO",
+      "FILES",
+      "NETWORK",
+      "READ_SYSTEM_STATE",
+      "REFLECT",
+      "RUNTIME",
+      "UNANALYZED",
+      "UNSAFE_POINTER"
+    ],
+    "github.com/thesimpledev/radianthorizon/game": [
+      "ARBITRARY_EXECUTION",
+      "CGO",
+      "FILES",
+      "NETWORK",
+      "READ_SYSTEM_STATE",
+      "REFLECT",
+      "RUNTIME",
+      "UNANALYZED",
+      "UNSAFE_POINTER"
+    ],
+    "github.com/thesimpledev/radianthorizon/lib": [
+      "CGO",
+      "REFLECT",
+      "RUNTIME",
+      "UNANALYZED",
+      "UNSAFE_POINTER"
+    ],
+    "github.com/thesimpledev/radianthorizon/states": [
+      "ARBITRARY_EXECUTION",
+      "CGO",
+      "FILES",
+      "NETWORK",
+      "READ_SYSTEM_STATE",
+      "REFLECT",
+      "RUNTIME",
+      "UNANALYZED",
+      "UNSAFE_POINTER"
+    ],
+    "github.com/thesimpledev/radianthorizon/ui": [
+      "ARBITRARY_EXECUTION",
+      "CGO",
+      "FILES",
+      "NETWORK",
+      "READ_SYSTEM_STATE",
+      "REFLECT",
+      "RUNTIME",
+      "UNANALYZED",
+      "UNSAFE_POINTER"
+    ]
+  }
+}
